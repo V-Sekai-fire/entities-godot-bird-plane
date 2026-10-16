@@ -25,10 +25,7 @@ extern "C" Variant _process_parent_child(double delta, Node3D parent, Node3D chi
 	return Nil;
 }
 
-SANDBOX_API({
-	.name = "_process_parent_child",
-	.address = (void*)&_process_parent_child,
-	.description = "Makes the plane smoothly follow the camera direction",
-	.return_type = "void",
-	.arguments = "double delta, Node3D parent, Node3D child",
-});
+int main() {
+	ADD_API_FUNCTION(_process_parent_child, "void", "double delta, Node3D parent, Node3D child", "Makes the plane smoothly follow the camera direction");
+	halt();
+}

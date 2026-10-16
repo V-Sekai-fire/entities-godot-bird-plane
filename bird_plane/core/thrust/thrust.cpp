@@ -70,10 +70,7 @@ extern "C" Variant _physics_process_plane(double delta, Node3D plane) {
 	return Nil;
 }
 
-SANDBOX_API({
-	.name = "_physics_process_plane",
-	.address = (void*)&_physics_process_plane,
-	.description = "Thrust calculations",
-	.return_type = "void",
-	.arguments = "double delta, Node3D plane",
-});
+int main() {
+	ADD_API_FUNCTION(_physics_process_plane, "void", "double delta, Node3D plane", "Thrust calculations");
+	halt();
+}

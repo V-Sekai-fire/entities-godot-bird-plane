@@ -1,0 +1,53 @@
+name: guest ELFs
+
+# Checks the committed guest ELFs, then rebuilds them from source with tools/build.exs and checks
+# the rebuilt ones the same way: the Variant size baked into .sandbox_variant and the highest ecall
+# id. The rebuild is not compared byte for byte, because the CI clang is not the one that built them.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The pins the committed ELFs were built against.
+  GUEST_RUNTIME_SHA: f4d74793fb0b3abfc521d773b461be8f2dc22c6e
+  SYSROOT_SHA: 05a47642f334b281f36bfd889e92c8c0bfb5f545
+
+jobs:
+  elfs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang lld llvm cmake ninja-build elixir
+          clang++ --print-targets | grep -q riscv64
+      - name: Pinned guest runtime and sysroot
+        run: |
+          set -e
+          fetch() { git init -q "$1"; git -C "$1" fetch -q --depth 1 "$2" "$3"; git -C "$1" checkout -q FETCH_HEAD; }
+          fetch weft/2-contract/guest-runtime https://github.com/V-Sekai-fire/contract-guest-runtime "$GUEST_RUNTIME_SHA"
+          fetch weft/5-repository/riscv64-sysroot https://github.com/V-Sekai-fire/repository-riscv64-sysroot "$SYSROOT_SHA"
+          echo "WEFT_ROOT=$GITHUB_WORKSPACE/weft" >> "$GITHUB_ENV"
+      - name: Committed ELFs
+        working-directory: repo
+        run: elixir tools/check_elfs.exs --variant-size=24 bird_plane/core/*/*.elf
+      - name: Control, the check fails on a double-precision expectation
+        working-directory: repo
+        run: "! elixir tools/check_elfs.exs --variant-size=40 bird_plane/core/thrust/thrust.elf"
+      - name: Rebuild
+        working-directory: repo
+        run: elixir tools/build.exs
+      - name: Rebuilt ELFs
+        working-directory: repo
+        run: |
+          elixir tools/check_elfs.exs --variant-size=24 bird_plane/core/*/*.elf
+          git status --short
